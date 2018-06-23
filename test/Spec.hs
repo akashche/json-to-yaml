@@ -13,4 +13,4 @@ main = do
     let path = "test/test.json"
     withFileText path (\text -> do
         let val = parseJson text path
-        putStr (toYaml val))
+        putStr (toYaml 0 val))

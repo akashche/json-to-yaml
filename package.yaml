@@ -29,16 +29,16 @@ dependencies:
 library:
   source-dirs: src
 
-executables:
-  json-to-yaml-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - json-to-yaml
+#executables:
+#  json-to-yaml-exe:
+#    main:                Main.hs
+#    source-dirs:         app
+#    ghc-options:
+#    - -threaded
+#    - -rtsopts
+#    - -with-rtsopts=-N
+#    dependencies:
+#    - json-to-yaml
 
 tests:
   json-to-yaml-test:

@@ -1,5 +1,6 @@
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Types
     ( JValue(..)
@@ -23,5 +24,4 @@ data JField = JField
     { name :: Text
     , value :: JValue
     } deriving Show
-
 

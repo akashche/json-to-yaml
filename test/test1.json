@@ -1,0 +1,4 @@
+{
+  "baz": [null, false, true, 42, "foo"],
+  "bar": 43
+}

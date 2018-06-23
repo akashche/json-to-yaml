@@ -5,54 +5,55 @@ module Yaml
     ( toYaml
     ) where
 
-import Prelude (otherwise, show)
+import Prelude (Int, (+), otherwise, replicate, show)
 
 import Data.Monoid ((<>))
 import Data.Text.Lazy (Text, pack)
-import Data.Text.Lazy.Builder (Builder, fromLazyText, toLazyText)
+import Data.Text.Lazy.Builder (Builder, fromLazyText, fromString, toLazyText)
 import Data.Vector (ifoldl')
 
 import Types
 
-toYaml :: JValue -> Text
+toYaml :: Int -> JValue -> Text
 
-toYaml (JNull) = ""
+toYaml _ (JNull) = ""
 
-toYaml (JBool val)
+toYaml _ (JBool val)
     | val = "true"
     | otherwise = "false"
 
-toYaml (JNumber val) = pack (show val)
+toYaml _ (JNumber val) = pack (show val)
 
-toYaml (JString val) = val
+toYaml _ (JString val) = val
 
-toYaml (JArray val) =
+toYaml indent (JArray val) =
     toLazyText
         (ifoldl'
             (\ac i el ->
                 ac
-                <> (fromLazyText " - ")
-                <> (fromLazyText (toYaml el))
                 <> (fromLazyText "\n")
+                <> (fromString (replicate indent ' '))
+                <> (fromLazyText "- ")
+                <> (fromLazyText (toYaml (indent + 2) el))
                 )
             (fromLazyText "")
             val )
 
-toYaml (JObject val) =
+toYaml indent (JObject val) =
     toLazyText
         (ifoldl'
             (\ac i el ->
                 ac
-                <> (fieldToYaml el)
                 <> (fromLazyText "\n")
+                <> (fromString (replicate indent ' '))
+                <> (fieldToYaml (indent + 2) el)
                 )
             (fromLazyText "")
             val)
 
-fieldToYaml :: JField -> Builder
-fieldToYaml (JField name val) =
-    (fromLazyText " - ")
-    <> (fromLazyText name)
-    <> (fromLazyText " : ")
-    <> (fromLazyText (toYaml val))
+fieldToYaml :: Int -> JField -> Builder
+fieldToYaml indent (JField name val) =
+       (fromLazyText name)
+    <> (fromLazyText ": ")
+    <> (fromLazyText (toYaml indent val))
 

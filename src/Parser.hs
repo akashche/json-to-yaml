@@ -7,53 +7,121 @@ module Parser
 
 import Prelude
     ( Bool(True, False)
+    , Double
+    , Int
+    , Integer
+    , (+)
+    , (*)
+    , (/)
+    , (^)
     , (>>)
-    , const, either, id, read, return, show
+    , const
+    , either
+    , flip
+    , fromIntegral
+    , fst
+    , id
+    , length
+    , read
+    , return
+    , show
+    , snd
     )
 
+import Data.Char (chr)
 import Data.Text.Lazy (Text, pack, unpack)
-import Text.Parsec ((<|>), char, many, many1, noneOf, oneOf, parse, sepBy, spaces)
+import Data.Vector (fromList)
+import Debug.Trace (trace)
+import Text.Parsec
+    ((<|>)
+    , char
+    , count
+    , hexDigit
+    , many
+    , many1
+    , noneOf
+    , oneOf
+    , option
+    , parse
+    , sepBy
+    , skipMany
+    , spaces
+    )
 import Text.Parsec.Char (digit, string)
 import Text.Parsec.Text.Lazy (Parser)
-import Data.Vector (fromList)
 
 import Types
 
+-- helpers
+
+debug = (flip trace)
+
+whitespace :: Parser ()
+whitespace = skipMany (oneOf [' ', '\t', '\n', '\r'])
+
+-- parsers
+
 jsonNull = do
-    spaces
     string "null"
-    spaces
+    whitespace
     return JNull
 
 jsonFalse = do
-    spaces
     string "false"
-    spaces
+    whitespace
     return (JBool False)
 
 jsonTrue = do
-    spaces
     string "true"
-    spaces
+    whitespace
     return (JBool True)
 
+-- use "read" only for integers for better control
 jsonNumber = do
-    spaces
-    num <- many1
-        ( digit
-        <|> oneOf [',', '.', '-']
-        )
-    spaces
-    return (JNumber (read num))
+    -- sign
+    negative <- option
+        False
+        (char '-' >> return True)
+    -- before dot
+    mantissaHead <- many1 digit
+    -- after dot
+    mantissaTail <- option
+        "0"
+        (char '.' >> many1 digit)
+    -- exp part
+    exptup <- option
+        (False, 0)
+        (do
+            oneOf ['e', 'E']
+            expneg <- option
+                False
+                (char '-' >> return True)
+            expstr <- many1 digit
+            let expnum = read expstr :: Integer
+            return (expneg, expnum))
+    whitespace
+    -- compute
+    let head = (read mantissaHead) :: Double
+    let tail = (read mantissaTail ) :: Double
+    let divider = (fromIntegral (10 ^ (length mantissaTail))) :: Double
+    let real = head + (tail / divider)
+    let expOp = if (fst exptup)
+        then (/)
+        else (*)
+    let expval = (fromIntegral (10 ^ (snd exptup))) :: Double
+    let absval = expOp real expval
+    let numval = if negative
+        then (- absval)
+        else absval
+    return (JNumber numval)
 
 jsonString = do
-    spaces
     char '"'
     st <- many
         ( noneOf ['"', '\\']
         <|> (
             char '\\' >>
-                ( char '"'
+                (   char '"'
                 <|> char '\\'
                 <|> char '/'
                 <|> char 'b'
@@ -61,51 +129,55 @@ jsonString = do
                 <|> char 'n'
                 <|> char 'r'
                 <|> char 't'
-                -- <|> char 'u' TODO
+                <|> (char 'u' >> (do
+                    hexstr  <- count 4 hexDigit
+                    let num = read ('0':('x':hexstr)) :: Int
+                    return (chr num)))
                 )
             )
         )
     char '"'
-    spaces
+    whitespace
     return (JString (pack st))
 
 jsonArray = do
     char '['
-    spaces
+    whitespace
     li <- sepBy
         jsonValue
-        (char ',')
-    spaces
+        ((char ',') >> whitespace)
+    whitespace
     char ']'
+    whitespace
     return (JArray (fromList li))
 
 jsonField :: Parser JField
 jsonField = do
-    spaces
-    name <- many1 (noneOf [':'])
-    spaces
+    name <- jsonString
+    whitespace
     char ':'
-    spaces
+    whitespace
     val <- jsonValue
-    spaces
-    return (JField (pack name) val)
+    whitespace
+    return (JField ((\(JString x) -> x) name) val)
 
 jsonObject = do
-    spaces
     char '{'
+    whitespace
     li <- sepBy
         jsonField
-        (char ',')
+        ((char ',') >> whitespace)
+    whitespace
     char '}'
-    spaces
+    whitespace
     return (JObject (fromList li))
 
 
 jsonValue :: Parser JValue
 jsonValue = do
-    spaces
+    whitespace
     val <-
-        ( jsonNull
+        (   jsonNull
         <|> jsonTrue
         <|> jsonFalse
         <|> jsonNumber
@@ -113,7 +185,6 @@ jsonValue = do
         <|> jsonArray
         <|> jsonObject
         )
-    spaces
     return val
 
 parseJson :: Text -> Text -> JValue
