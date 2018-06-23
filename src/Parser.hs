@@ -22,18 +22,20 @@ import Prelude
     , fst
     , id
     , length
+    , not
     , read
     , return
     , show
     , snd
     )
 
+import Control.Monad (when)
 import Data.Char (chr)
 import Data.Text.Lazy (Text, pack, unpack)
 import Data.Vector (fromList)
-import Debug.Trace (trace)
 import Text.Parsec
-    ((<|>)
+    ( (<|>)
+    , (<?>)
     , char
     , count
     , hexDigit
@@ -42,6 +44,7 @@ import Text.Parsec
     , noneOf
     , oneOf
     , option
+    , optional
     , parse
     , sepBy
     , skipMany
@@ -54,8 +57,7 @@ import Types
 
 -- helpers
 
-debug = (flip trace)
-
+-- lexeme may be used instead
 whitespace :: Parser ()
 whitespace = skipMany (oneOf [' ', '\t', '\n', '\r'])
 
@@ -96,6 +98,8 @@ jsonNumber = do
             expneg <- option
                 False
                 (char '-' >> return True)
+            when (not expneg)
+                (optional (char '+'))
             expstr <- many1 digit
             let expnum = read expstr :: Integer
             return (expneg, expnum))
@@ -124,11 +128,11 @@ jsonString = do
                 (   char '"'
                 <|> char '\\'
                 <|> char '/'
-                <|> char 'b'
-                <|> char 'f'
-                <|> char 'n'
-                <|> char 'r'
-                <|> char 't'
+                <|> (char 'b' >> return '\b')
+                <|> (char 'f' >> return '\f')
+                <|> (char 'n' >> return '\n')
+                <|> (char 'r' >> return '\r')
+                <|> (char 't' >> return '\t')
                 <|> (char 'u' >> (do
                     hexstr  <- count 4 hexDigit
                     let num = read ('0':('x':hexstr)) :: Int
@@ -184,6 +188,7 @@ jsonValue = do
         <|> jsonString
         <|> jsonArray
         <|> jsonObject
+        <?> "JSON_VALUE"
         )
     return val
 
